@@ -1,0 +1,106 @@
+
+# Read in the dataset and process the data
+ Let us look at the data types. Convert the date to Date object and look at the data types
+
+```{r eval=TRUE, echo=TRUE}
+setwd ('/home/kirana/coursera/researchmethods')
+library (data.table)
+activity <- fread ('activity.csv', header=T)
+print (str(activity))
+activity [,date := as.Date (date, format = "%Y-%m-%d")]
+print (str(activity))
+```
+
+
+# Histogram of the total number of steps taken each day
+We have to sum the number of steps per day
+```{r eval=TRUE, echo=TRUE}
+activity1 <- activity [,list (steps= sum(steps)),by=date]
+temp <- copy (activity1)
+print ("Overall Mean")
+meanperday <- mean (temp$steps, na.rm=TRUE)
+print (meanperday)
+print ("Overall Median")
+medianperday <- median (temp$steps, na.rm=TRUE)
+print (medianperday)
+```
+
+
+ We just use the ggplot2 library and call the histogram function. We could have also used qplot or the base histogram function
+```{r eval=TRUE, echo=TRUE}
+library (ggplot2)
+ggplot (activity1, aes (x=steps)) + geom_histogram () + ggtitle ("Histogram of the number of steps taken per day") + xlab ("Steps") + ylab ("Count of the number of steps") 
+```
+
+# Mean and median number of steps per day
+```{r eval=TRUE, echo=TRUE}
+temp <- activity [,list (meanperday = mean(steps*1.0, na.rm=TRUE),
+medianperday = median (steps*1.0, na.rm=TRUE)),by=date]
+print (temp)
+```
+
+# Time series plot of the average number of steps taken
+ We just use ggplot2 library function to accomplish this
+```{r eval=TRUE, echo=TRUE}
+temp <- activity [,list (meanperday = mean(steps, na.rm=TRUE)),by=interval]
+
+ggplot (temp, aes (interval, meanperday)) + geom_line () + ggtitle ("Time Series Plot of the average number of steps ") + xlab ("Interval") + ylab ("Average (Mean) number of steps")
+```
+# The 5 minute interval that on an average contains the maximum number of steps
+```{r eval=TRUE, echo=TRUE}
+fiveminmax <- activity [,list(steps = mean(steps, na.rm=TRUE)),by = interval]
+fiveminmax <- fiveminmax [order(steps, decreasing=TRUE),]
+print ("5 minute interval that on an average contains the maximum number of steps is")
+print (fiveminmax[1,interval])
+```
+ Looks like the interval 835 has the maximum number of missing values
+
+# Code to describe and show a strategy for imputing missing data
+ We will replace the missing values with the mean
+
+```{r eval=TRUE, echo=TRUE}
+means <- activity [,list (meansteps  = mean(steps, na.rm=TRUE)), by = interval]
+imputeactivity <- merge (activity, means, by= "interval", all.x=TRUE)
+imputeactivity [,steps := ifelse (is.na(steps), meansteps, steps)]
+print ('Let us now compare the %age missing values in each variable before and after imputation')
+	print ('Before imputation')
+print (activity [,lapply(.SD, function(x) length(which(is.na(x))))])
+	print ('After imputation')
+print (imputeactivity [,lapply(.SD, function(x) length(which(is.na(x))))])
+```
+
+
+# Histogram of the total number of steps taken each day after missing values are imputed
+ We just use the ggplot2 library and call the histogram function. We could have also used qplot or the base histogram function
+```{r eval=TRUE, echo=TRUE}
+library (ggplot2)
+imputeactivity1 <- imputeactivity [,list(steps=sum(steps)), by=date]
+ggplot (imputeactivity1, aes (x=steps)) + geom_histogram () + ggtitle ("Histogram of the number of steps taken per day after missing values are imputed") + xlab ("Steps") + ylab ("Count of the number of steps")
+print ("Overall Mean")
+temp <- copy (imputeactivity1)
+meanperday <- mean (temp$steps, na.rm=TRUE)
+print (meanperday)
+print ("Overall Median")
+medianperday <- median (temp$steps, na.rm=TRUE)
+print (medianperday)
+```
+ By comparing the histogram of the new dataset with the imputed values with the histogram of the original dataset with the missing values above, we can see that the values do differ slightly
+
+
+# Panel plot comparing the average number of steps taken per 5-minute interval across weekdays and weekends 
+ First step is to create a variable with values of weekend_weekday where 1 is a weekend and 0 is a weekday
+ Then we can use ggplot2 to create a panel plot
+```{r eval=TRUE, echo=TRUE}
+activity [,dayofweek := wday (date)]
+activity [,weekday_weekend := ifelse (dayofweek == 1, "Weekend", "Weekday")]
+activity [,weekday_weekend := ifelse (dayofweek == 7, "Weekend", weekday_weekend)]
+
+
+tempnew <- activity [,list (steps = mean(steps, na.rm=TRUE)),by = list (weekday_weekend, interval)]
+ggplot (tempnew, aes (y=steps, x=interval, color = weekday_weekend)) + geom_line () + ggtitle ("Average number of steps taken on weekday and weekend")  + xlab ("Interval") + ylab ("Steps") + facet_grid (weekday_weekend ~ .)
+```
+
+
+
+
+
